@@ -25,6 +25,10 @@
 # include "SDL.h"
 #endif
 
+#if defined __SWITCH__
+# include <switch.h> 
+#endif
+
 #if (SDL_MAJOR_VERSION != 2)
 #  error This must be built with SDL2
 #endif
@@ -88,7 +92,7 @@ static int buildkeytranslationtable(void);
 
 static void shutdownvideo(void);
 
-#ifndef __APPLE__
+#if !defined __APPLE__ && !defined __SWITCH__
 static SDL_Surface * loadappicon(void);
 #endif
 
@@ -250,8 +254,75 @@ void wm_setwindowtitle(const char *name)
 //
 //
 
+#ifdef __SWITCH__
+
+Thread switchThread;
+bool switchThreadRunning;
+
+void switch_main(void *arg)
+{
+	PadState pad;
+	padConfigureInput(1, HidNpadStyleSet_NpadStandard);
+    padInitializeDefault(&pad);
+
+	while (switchThreadRunning)
+	{
+		// buttons
+	
+		padUpdate(&pad);
+
+		u64 kDown = padGetButtonsDown(&pad);
+		u64 kHeld = padGetButtons(&pad);
+		u64 kUp = padGetButtonsUp(&pad);
+
+		if (kDown && appactive)
+		{
+			joyb |= 1 << (31 - __builtin_clz(kDown));
+		}
+
+		if (kUp && appactive)
+		{
+			joyb &= ~(1 << (31 - __builtin_clz(kUp)));
+		}
+		
+		// axis
+
+		HidAnalogStickState analog_stick_l = padGetStickPos(&pad, 0);
+        HidAnalogStickState analog_stick_r = padGetStickPos(&pad, 1);
+
+		if (appactive) {
+			joyaxis[0] = analog_stick_l.x;
+			joyaxis[1] = -analog_stick_l.y;
+			joyaxis[2] = analog_stick_r.x;
+			joyaxis[3] = analog_stick_r.y;
+		}
+
+		svcSleepThread(16000000ull); // 60 fps controls reading
+	}
+}
+
+void initSwitchThread()
+{
+	switchThreadRunning = true;
+	Result rc = threadCreate(&switchThread, switch_main, NULL, NULL, 0x4000, 0x2B, 2);
+	
+	if (R_FAILED(rc)) {
+        buildputs("Failed to create input thread\n");
+		switchThreadRunning = false;
+        return;
+    }
+
+	threadStart(&switchThread);
+}
+
+#endif
+
 int main(int argc, char *argv[])
 {
+#ifdef __SWITCH__
+	initSwitchThread();
+#endif
+	
 	int r;
 
 	buildkeytranslationtable();
@@ -297,6 +368,11 @@ int main(int argc, char *argv[])
 	startwin_close();
 #ifdef HAVE_GTK
 	wmgtk_exit();
+#endif
+
+#ifdef __SWITCH__
+	if (switchThreadRunning)
+		switchThreadRunning = false;
 #endif
 
 	SDL_Quit();
@@ -891,7 +967,7 @@ int setvideomode(int x, int y, int c, int fs)
 		break;
 	} while (1);
 
-#ifndef __APPLE__
+#if !defined __APPLE__ && !defined __SWITCH__
 	{
 		SDL_Surface *icon = loadappicon();
 		SDL_SetWindowIcon(sdl_window, icon);
@@ -1205,7 +1281,7 @@ void *getglprocaddress(const char *name, int ext)
 #endif
 
 
-#ifndef __APPLE__
+#if !defined __APPLE__ && !defined __SWITCH__
 extern struct sdlappicon sdlappicon;
 static SDL_Surface * loadappicon(void)
 {
@@ -1252,6 +1328,7 @@ int handleevents(void)
 
 	while (SDL_PollEvent(&ev)) {
 		switch (ev.type) {
+#ifndef __SWITCH__
 			case SDL_TEXTINPUT:
 				if (eattextinput) {
 					eattextinput = 0;
@@ -1397,7 +1474,7 @@ int handleevents(void)
 						joyb &= ~(1 << ev.cbutton.button);
 				}
 				break;
-
+#endif
 			case SDL_QUIT:
 				quitevent = 1;
 				rv=-1;

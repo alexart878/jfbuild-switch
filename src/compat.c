@@ -454,11 +454,13 @@ struct Bdirent*	Breaddir(BDIR *dir)
 	dirr->info.size = 0;
 	dirr->info.mtime = 0;
 
+#ifndef __SWITCH__
 	if (!fstatat(dirfd(dirr->dir), de->d_name, &st, 0)) {
 		dirr->info.mode = st.st_mode;
 		dirr->info.size = st.st_size;
  		dirr->info.mtime = st.st_mtime;
 	}
+#endif
 #endif
 
 	return &dirr->info;
@@ -553,6 +555,8 @@ size_t Bgetsysmemsize(void)
         }
 	
 	return siz;
+#elif defined(__SWITCH__)
+	return 256 * 1024 * 1024;
 #elif (defined(_SC_PAGE_SIZE) || defined(_SC_PAGESIZE)) && defined(_SC_PHYS_PAGES)
 	size_t siz = 0x7fffffff;
 	long scpagesiz, scphyspages;

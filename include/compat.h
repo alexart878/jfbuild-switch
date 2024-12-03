@@ -137,6 +137,14 @@ typedef unsigned __int64 uint64_t;
 # define B_SWAP32(x) OSSwapConstInt32(x)
 # define B_SWAP16(x) OSSwapConstInt16(x)
 
+#elif defined(__SWITCH__)
+#include <sys/endian.h>
+# define B_LITTLE_ENDIAN 1
+# define B_BIG_ENDIAN    0
+# define B_SWAP64(x) __bswap64(x)
+# define B_SWAP32(x) __bswap32(x)
+# define B_SWAP16(x) __bswap16(x)
+
 #elif defined(_WIN32)
 # define B_LITTLE_ENDIAN 1
 # define B_BIG_ENDIAN    0
