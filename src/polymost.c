@@ -579,11 +579,170 @@ static void checkindexbuffer(unsigned int size)
 
 static void polymost_loadshaders(void)
 {
+#ifndef __SWITCH__
+	
 	extern const char default_polymost_fs_glsl[];
 	extern const char default_polymost_vs_glsl[];
 
 	extern const char default_polymostaux_fs_glsl[];
 	extern const char default_polymostaux_vs_glsl[];
+	
+#else
+
+	const char default_polymost_fs_glsl[] =
+		"#glbuild(ES2) #version 100\n"
+		"#glbuild(2)   #version 110\n"
+		"#glbuild(3)   #version 140\n"
+		"\n"
+		"#ifdef GL_ES\n"
+		"precision lowp float;\n"
+		"#  define o_fragcolour gl_FragColor\n"
+		"#elif __VERSION__ < 140\n"
+		"#  define mediump\n"
+		"#  define o_fragcolour gl_FragColor\n"
+		"#else\n"
+		"#  define varying in\n"
+		"#  define texture2D texture\n"
+		"out vec4 o_fragcolour;\n"
+		"#endif\n"
+		"\n"
+		"uniform sampler2D u_texture;\n"
+		"uniform sampler2D u_glowtexture;\n"
+		"uniform vec4 u_colour;\n"
+		"uniform float u_alphacut;\n"
+		"uniform vec4 u_fogcolour;\n"
+		"uniform float u_fogdensity;\n"
+		"uniform float u_gamma;\n"
+		"\n"
+		"varying mediump vec2 v_texcoord;\n"
+		"\n"
+		"vec4 applyfog(vec4 inputcolour) {\n"
+		"    const float LOG2_E = 1.442695;\n"
+		"    float dist = gl_FragCoord.z / gl_FragCoord.w;\n"
+		"    float densdist = u_fogdensity * dist;\n"
+		"    float amount = 1.0 - clamp(exp2(-densdist * densdist * LOG2_E), 0.0, 1.0);\n"
+		"    return mix(inputcolour, u_fogcolour, amount);\n"
+		"}\n"
+		"\n"
+		"void main(void)\n"
+		"{\n"
+		"    vec4 texcolour;\n"
+		"    vec4 glowcolour;\n"
+		"\n"
+		"    texcolour = texture2D(u_texture, v_texcoord);\n"
+		"    glowcolour = texture2D(u_glowtexture, v_texcoord);\n"
+		"\n"
+		"    if (texcolour.a < u_alphacut) {\n"
+		"        discard;\n"
+		"    }\n"
+		"\n"
+		"    texcolour = applyfog(texcolour);\n"
+		"    o_fragcolour = mix(texcolour * u_colour, glowcolour, glowcolour.a);\n"
+		"    o_fragcolour.rgb = pow(o_fragcolour.rgb, vec3(1.0/u_gamma));\n"
+		"}\n"
+	;
+
+	const char default_polymost_vs_glsl[] =
+		"#glbuild(ES2) #version 100\n"
+		"#glbuild(2)   #version 110\n"
+		"#glbuild(3)   #version 140\n"
+		"\n"
+		"#ifdef GL_ES\n"
+		"#elif __VERSION__ < 140\n"
+		"#  define mediump\n"
+		"#else\n"
+		"#  define attribute in\n"
+		"#  define varying out\n"
+		"#endif\n"
+		"\n"
+		"attribute vec3 a_vertex;\n"
+		"attribute mediump vec2 a_texcoord;\n"
+		"varying mediump vec2 v_texcoord;\n"
+		"\n"
+		"uniform mat4 u_modelview;\n"
+		"uniform mat4 u_projection;\n"
+		"\n"
+		"void main(void)\n"
+		"{\n"
+		"    v_texcoord = a_texcoord;\n"
+		"    gl_Position = u_projection * u_modelview * vec4(a_vertex, 1.0);\n"
+		"}\n"
+	;
+
+	const char default_polymostaux_fs_glsl[] =
+		"#glbuild(ES2) #version 100\n"
+		"#glbuild(2)   #version 110\n"
+		"#glbuild(3)   #version 140\n"
+		"\n"
+		"#ifdef GL_ES\n"
+		"precision lowp float;\n"
+		"precision lowp int;\n"
+		"#  define o_fragcolour gl_FragColor\n"
+		"#elif __VERSION__ < 140\n"
+		"#  define mediump\n"
+		"#  define o_fragcolour gl_FragColor\n"
+		"#else\n"
+		"#  define varying in\n"
+		"#  define texture2D texture\n"
+		"out vec4 o_fragcolour;\n"
+		"#endif\n"
+		"\n"
+		"uniform sampler2D u_texture;\n"
+		"uniform vec4 u_colour;\n"
+		"uniform vec4 u_bgcolour;\n"
+		"uniform int u_mode;\n"
+		"uniform float u_gamma;\n"
+		"\n"
+		"varying mediump vec2 v_texcoord;\n"
+		"\n"
+		"void main(void)\n"
+		"{\n"
+		"    vec4 pixel;\n"
+		"\n"
+		"    if (u_mode == 0) {\n"
+		"        // Text.\n"
+		"        pixel = texture2D(u_texture, v_texcoord);\n"
+		"        o_fragcolour = mix(u_bgcolour, u_colour, pixel.a);\n"
+		"    } else if (u_mode == 1) {\n"
+		"        // Tile screen.\n"
+		"        pixel = texture2D(u_texture, v_texcoord);\n"
+		"        o_fragcolour = mix(u_bgcolour, pixel, pixel.a);\n"
+		"    } else if (u_mode == 2) {\n"
+		"        // Foreground colour.\n"
+		"        o_fragcolour = u_colour;\n"
+		"    }\n"
+		"    o_fragcolour.rgb = pow(o_fragcolour.rgb, vec3(1.0/u_gamma));\n"
+		"}\n"
+	;
+
+	const char default_polymostaux_vs_glsl[] =
+		"#glbuild(ES2) #version 100\n"
+		"#glbuild(2)   #version 110\n"
+		"#glbuild(3)   #version 140\n"
+		"\n"
+		"#ifdef GL_ES\n"
+		"#elif __VERSION__ < 140\n"
+		"#  define mediump\n"
+		"#else\n"
+		"#  define attribute in\n"
+		"#  define varying out\n"
+		"#endif\n"
+		"\n"
+		"attribute vec3 a_vertex;\n"
+		"attribute mediump vec2 a_texcoord;\n"
+		"\n"
+		"uniform mat4 u_projection;\n"
+		"\n"
+		"varying mediump vec2 v_texcoord;\n"
+		"\n"
+		"void main(void)\n"
+		"{\n"
+		"    v_texcoord = a_texcoord;\n"
+		"    gl_Position = u_projection * vec4(a_vertex, 1.0);\n"
+		"}\n"
+	;
+
+#endif
 
 	GLuint shader[2] = {0,0};
 
@@ -992,7 +1151,9 @@ void drawpoly (double *dpx, double *dpy, int n, int method)
 	double ngvx = 0.0, ngvy = 0.0, ngvo = 0.0, dp, up, vp, rdp;
 	double ngdx2, ngux2, ngvx2;
 	double f, r, ox, oy, oz, ox2, oy2, oz2, dd[16], uu[16], vv[16], px[16], py[16];
-	int i, j, k, x, y, z, ix0, ix1, mini, maxi, tsizx, tsizy, tsizxm1 = 0, tsizym1 = 0, ltsizy = 0;
+	int i, j, k, x, y, z, mini, maxi, tsizx, tsizy, tsizxm1 = 0, tsizym1 = 0, ltsizy = 0;
+	// Thanks Rinnegatamante for this fix
+	uint32_t ix0, ix1;
 	int xx, yy, xi, d0, u0, v0, d1, u1, v1, xmodnice = 0, ymulnice = 0, dorot;
 	unsigned char dacol = 0, *walptr, *palptr = NULL, *vidp, *vide;
 
@@ -1226,8 +1387,10 @@ void drawpoly (double *dpx, double *dpy, int n, int method)
 			}
 
 			f = 1.0/(double)tsizx;
-			ix0 = (int)floor(du0*f);
-			ix1 = (int)floor(du1*f);
+			//ix0 = (int64_t)floor(du0*f);
+			//ix1 = (int64_t)floor(du1*f);
+			ix0 = (int32_t)floor(du0*f);
+			ix1 = (int32_t)floor(du1*f);
 			for(;ix0<=ix1;ix0++)
 			{
 				du0 = (double)((ix0  )*tsizx); // + uoffs;

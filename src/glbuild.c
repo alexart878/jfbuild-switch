@@ -620,8 +620,76 @@ int glbuild_prepare_8bit_shader(glbuild8bit *state, int resx, int resy, int stri
 {
 	GLuint shaders[2] = {0,0}, prog = 0;
 
+#ifndef __SWITCH__
+
 	extern const char default_glbuild_fs_glsl[];
 	extern const char default_glbuild_vs_glsl[];
+	
+#else
+
+	const char default_glbuild_fs_glsl[] =
+		"#glbuild(ES2) #version 100\n"
+		"#glbuild(2)   #version 110\n"
+		"#glbuild(3)   #version 140\n"
+		"\n"
+		"#ifdef GL_ES\n"
+		"#  define o_fragcolour gl_FragColor\n"
+		"precision mediump float;\n"
+		"precision mediump int;\n"
+		"#elif __VERSION__ < 140\n"
+		"#  define lowp\n"
+		"#  define mediump\n"
+		"#  define o_fragcolour gl_FragColor\n"
+		"#else\n"
+		"#  define varying in\n"
+		"#  define texture2D texture\n"
+		"out vec4 o_fragcolour;\n"
+		"#endif\n"
+		"\n"
+		"varying mediump vec2 v_texcoord;\n"
+		"\n"
+		"uniform sampler2D u_palette;\n"
+		"uniform sampler2D u_frame;\n"
+		"uniform float u_gamma;\n"
+		"\n"
+		"void main(void)\n"
+		"{\n"
+		"  lowp float pixelvalue;\n"
+		"  lowp vec3 palettevalue;\n"
+		"  pixelvalue = texture2D(u_frame, v_texcoord).r;\n"
+		"  palettevalue = texture2D(u_palette, vec2(pixelvalue, 0.5)).rgb;\n"
+		"  o_fragcolour = vec4(palettevalue, 1.0);\n"
+		"  o_fragcolour.rgb = pow(o_fragcolour.rgb, vec3(1.0/u_gamma));\n"
+		"}\n"
+	;
+
+	const char default_glbuild_vs_glsl[] =
+		"#glbuild(ES2) #version 100\n"
+		"#glbuild(2)   #version 110\n"
+		"#glbuild(3)   #version 140\n"
+		"\n"
+		"#ifdef GL_ES\n"
+		"precision mediump float;\n"
+		"precision mediump int;\n"
+		"#elif __VERSION__ < 140\n"
+		"#  define mediump\n"
+		"#else\n"
+		"#  define attribute in\n"
+		"#  define varying out\n"
+		"#endif\n"
+		"\n"
+		"attribute mediump vec2 a_vertex;\n"
+		"attribute mediump vec2 a_texcoord;\n"
+		"varying mediump vec2 v_texcoord;\n"
+		"\n"
+		"void main(void)\n"
+		"{\n"
+		"  v_texcoord = a_texcoord;\n"
+		"  gl_Position = vec4(a_vertex, 0.0, 1.0);\n"
+		"}\n"
+	;
+
+#endif
 
 	float tx = (float)resx / (float)stride, ty = 1.0;
 	int tsizx = stride, tsizy = resy;
