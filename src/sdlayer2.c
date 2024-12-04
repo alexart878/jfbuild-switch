@@ -259,6 +259,16 @@ void wm_setwindowtitle(const char *name)
 Thread switchThread;
 bool switchThreadRunning;
 
+// filtering NX stick pseudobuttons from button input
+
+#define FILTER_STICK_MASK ( \
+    HidNpadButton_StickL | HidNpadButton_StickR | \
+    HidNpadButton_StickLLeft | HidNpadButton_StickLUp | \
+    HidNpadButton_StickLRight | HidNpadButton_StickLDown | \
+    HidNpadButton_StickRLeft | HidNpadButton_StickRUp | \
+    HidNpadButton_StickRRight | HidNpadButton_StickRDown \
+)
+
 void switch_main(void *arg)
 {
 	PadState pad;
@@ -271,19 +281,14 @@ void switch_main(void *arg)
 	
 		padUpdate(&pad);
 
-		u64 kDown = padGetButtonsDown(&pad);
-		u64 kHeld = padGetButtons(&pad);
-		u64 kUp = padGetButtonsUp(&pad);
+		u64 kDown = padGetButtonsDown(&pad) & ~FILTER_STICK_MASK;
+		u64 kUp = padGetButtonsUp(&pad) & ~FILTER_STICK_MASK;
 
 		if (kDown && appactive)
-		{
-			joyb |= 1 << (31 - __builtin_clz(kDown));
-		}
+			joyb |= 1 << (63 - __builtin_clzll(kDown));
 
 		if (kUp && appactive)
-		{
-			joyb &= ~(1 << (31 - __builtin_clz(kUp)));
-		}
+			joyb &= ~(1 << (63 - __builtin_clzll(kUp)));
 		
 		// axis
 
